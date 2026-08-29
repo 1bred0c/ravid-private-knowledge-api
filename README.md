@@ -5,6 +5,8 @@ authenticate with JWT, subscribe to a plan, upload PDF/TXT/Markdown documents,
 and query one or more of their indexed documents through standard RAG or the
 optional HyDE retrieval pipeline.
 
+Companion frontend: [ravid-private-knowledge-fe](https://github.com/1bred0c/ravid-private-knowledge-fe). Start this backend stack first, then follow the frontend repository's Docker instructions and open http://localhost:5173.
+
 ## Architecture
 
 ```text
