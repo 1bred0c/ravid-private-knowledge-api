@@ -39,7 +39,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     firstName = serializers.CharField(source="first_name", max_length=150)
     lastName = serializers.CharField(source="last_name", max_length=150)
     password = serializers.CharField(write_only=True, min_length=8)
-    password_confirm = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
@@ -49,7 +48,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             "firstName",
             "lastName",
             "password",
-            "password_confirm",
         ]
 
     def validate_email(self, value):
@@ -57,13 +55,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
-
-    def validate(self, attrs):
-        if attrs["password"] != attrs.pop("password_confirm"):
-            raise serializers.ValidationError(
-                {"password_confirm": "Passwords do not match."}
-            )
-        return attrs
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)

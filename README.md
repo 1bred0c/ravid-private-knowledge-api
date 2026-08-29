@@ -145,8 +145,7 @@ POST /api/auth/register/
   "email": "candidate@example.com",
   "firstName": "Back",
   "lastName": "End",
-  "password": "strong-password",
-  "password_confirm": "strong-password"
+  "password": "strong-password"
 }
 ```
 

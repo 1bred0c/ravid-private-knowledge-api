@@ -659,6 +659,7 @@ components:
         created_at:
           type: string
           format: date-time
+        metadata: {}
       required:
       - content
       - created_at
@@ -1003,15 +1004,10 @@ components:
           type: string
           writeOnly: true
           minLength: 8
-        password_confirm:
-          type: string
-          writeOnly: true
-          minLength: 1
       required:
       - firstName
       - lastName
       - password
-      - password_confirm
       - username
     RetrievalMetadata:
       type: object

@@ -37,7 +37,6 @@ class AuthenticationSmokeTests(APITestCase):
                 'firstName': 'New',
                 'lastName': 'User',
                 'password': 'strong-test-password',
-                'password_confirm': 'strong-test-password',
             },
             format='json',
         )
@@ -51,7 +50,7 @@ class AuthenticationSmokeTests(APITestCase):
         self.assertEqual(response.data['lastName'], 'User')
         self.assertNotIn('password', response.data)
 
-    def test_registration_rejects_mismatched_passwords(self):
+    def test_registration_rejects_short_password(self):
         response = self.client.post(
             reverse('register'),
             {
@@ -59,8 +58,7 @@ class AuthenticationSmokeTests(APITestCase):
                 'email': 'new@example.com',
                 'firstName': 'New',
                 'lastName': 'User',
-                'password': 'strong-test-password',
-                'password_confirm': 'different-password',
+                'password': 'short',
             },
             format='json',
         )
