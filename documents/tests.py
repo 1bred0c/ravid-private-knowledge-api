@@ -147,6 +147,20 @@ class DocumentFlowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", response.data)
 
+    def test_upload_accepts_long_filename(self):
+        long_name = f"{'assessment-' * 12}candidate.pdf"
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("document-upload"),
+                {"title": "Backend assessment", "file": self.make_pdf(long_name)},
+                format="multipart",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        document = Document.objects.get(id=response.data["document_id"])
+        self.assertEqual(document.original_filename, long_name)
+
     def test_active_subscription_is_required(self):
         self.subscription.status = Subscription.Status.CANCELLED
         self.subscription.save(update_fields=["status", "updated_at"])

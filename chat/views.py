@@ -68,5 +68,14 @@ class ChatHistoryView(APIView):
         return Response({"conversations": [{
             "id": str(item.id),
             "title": item.title,
-            "messages": [{"id": str(message.id), "role": message.role, "content": message.content, "created_at": message.created_at} for message in item.messages.all()],
+            "messages": [
+                {
+                    "id": str(message.id),
+                    "role": message.role,
+                    "content": message.content,
+                    "created_at": message.created_at,
+                    **({"metadata": message.metadata} if message.metadata else {}),
+                }
+                for message in item.messages.all()
+            ],
         } for item in conversations]})

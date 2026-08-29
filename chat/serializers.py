@@ -57,6 +57,7 @@ class ChatMessageSerializer(serializers.Serializer):
     role = serializers.CharField()
     content = serializers.CharField()
     created_at = serializers.DateTimeField()
+    metadata = serializers.JSONField(required=False)
 
 
 class ConversationHistorySerializer(serializers.Serializer):

@@ -1,4 +1,5 @@
 from django.http import FileResponse, Http404
+from django.core.exceptions import SuspiciousFileOperation
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
@@ -50,11 +51,17 @@ def create_upload_response(request):
         if isinstance(first_error, (list, tuple)):
             first_error = first_error[0]
         return Response({"error": str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
-    document = create_document(
-        user=request.user,
-        uploaded_file=serializer.validated_data["file"],
-        title=serializer.validated_data.get("title", ""),
-    )
+    try:
+        document = create_document(
+            user=request.user,
+            uploaded_file=serializer.validated_data["file"],
+            title=serializer.validated_data.get("title", ""),
+        )
+    except SuspiciousFileOperation:
+        return Response(
+            {"error": "The uploaded filename is too long or invalid."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     return Response(
         {
             "message": "Document uploaded and ingestion started",

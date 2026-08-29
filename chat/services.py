@@ -79,6 +79,62 @@ def _usage_tokens(message):
     return int(usage.get("total_tokens") or usage.get("total") or 0)
 
 
+def _message_text(message):
+    """Normalize text-only and block-based LangChain/OpenAI responses."""
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content.strip()
+    if not isinstance(content, list):
+        return ""
+
+    parts = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+            continue
+        if isinstance(block, dict) and block.get("type") in {"text", "output_text"}:
+            text = block.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+    return "\n".join(part.strip() for part in parts if part.strip()).strip()
+
+
+def _generate_answer(context, query):
+    response = (ANSWER_PROMPT | get_chat_model()).invoke(
+        {"context": context, "question": query}
+    )
+    answer = _message_text(response)
+    total_tokens = _usage_tokens(response)
+    if answer:
+        return answer, total_tokens
+
+    logger.warning(
+        "Chat provider returned an empty answer; retrying with low reasoning",
+        extra={
+            "finish_reason": (getattr(response, "response_metadata", None) or {}).get(
+                "finish_reason"
+            ),
+            "model": (getattr(response, "response_metadata", None) or {}).get(
+                "model_name"
+            ),
+        },
+    )
+    retry_response = (
+        ANSWER_PROMPT
+        | get_chat_model(
+            max_retries=0,
+            reasoning={"effort": "low", "exclude": True},
+        )
+    ).invoke({"context": context, "question": query})
+    total_tokens += _usage_tokens(retry_response)
+    answer = _message_text(retry_response)
+    if not answer:
+        raise ChatServiceUnavailable(
+            "The AI provider returned an empty answer. Please try again."
+        )
+    return answer, total_tokens
+
+
 def _estimated_reservation(query, use_hyde):
     context_characters = settings.RAG_RETRIEVAL_K * settings.RAG_CHUNK_SIZE
     estimated_input = math.ceil((context_characters + len(query)) / 4) + 300
@@ -190,15 +246,18 @@ def answer_query(*, user, query, document_ids, conversation_id, use_hyde=False):
             f"[Source {index}] {doc.page_content}"
             for index, doc in enumerate(retrieved_documents, 1)
         )
-        response = (ANSWER_PROMPT | get_chat_model()).invoke(
-            {"context": context, "question": query}
-        )
-        answer_tokens = _usage_tokens(response)
+        answer, answer_tokens = _generate_answer(context, query)
         if answer_tokens <= 0:
-            answer_tokens = max(1, len(str(response.content)) // 4)
+            answer_tokens = max(1, len(answer) // 4)
         actual_tokens = min(hyde_tokens + answer_tokens, reservation.tokens)
         commit_token_usage(reservation, actual_tokens)
     except TokenUsageUnavailable:
+        raise
+    except ChatServiceUnavailable:
+        try:
+            release_token_reservation(reservation)
+        except TokenUsageUnavailable:
+            logger.exception("Could not release chat token reservation")
         raise
     except Exception as error:
         try:
@@ -232,10 +291,10 @@ def answer_query(*, user, query, document_ids, conversation_id, use_hyde=False):
         ChatMessage.objects.create(
             conversation=conversation,
             role=ChatMessage.Role.ASSISTANT,
-            content=response.content,
+            content=answer,
             token_count=actual_tokens,
             metadata=metadata,
         )
         conversation.updated_at = timezone.now()
         conversation.save(update_fields=["updated_at"])
-    return response.content, metadata, conversation
+    return answer, metadata, conversation

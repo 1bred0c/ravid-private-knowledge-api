@@ -18,7 +18,7 @@ class Document(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="documents")
     title = models.CharField(max_length=255)
-    file = models.FileField(upload_to=document_upload_path)
+    file = models.FileField(upload_to=document_upload_path, max_length=500)
     original_filename = models.CharField(max_length=255)
     mime_type = models.CharField(max_length=100, default="application/pdf")
     file_size = models.PositiveBigIntegerField()
