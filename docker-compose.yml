@@ -1,0 +1,109 @@
+x-app: &app
+  build:
+    context: .
+  env_file:
+    - .env
+  environment: &app-environment
+    DATABASE_URL: postgresql://${POSTGRES_USER:-ravid}:${POSTGRES_PASSWORD:-ravid}@db:5432/${POSTGRES_DB:-ravid}
+    LANGCHAIN_PG_CONNECTION: postgresql+psycopg://${POSTGRES_USER:-ravid}:${POSTGRES_PASSWORD:-ravid}@db:5432/${POSTGRES_DB:-ravid}
+    REDIS_URL: redis://redis:6379/0
+    DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,web
+  volumes:
+    - media_data:/app/media
+    - static_data:/app/staticfiles
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.6-pg16-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ravid}
+      POSTGRES_USER: ${POSTGRES_USER:-ravid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ravid}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.2-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    <<: *app
+    environment:
+      <<: *app-environment
+      RUN_MIGRATIONS: "true"
+      COLLECT_STATIC: "true"
+    command:
+      - gunicorn
+      - config.wsgi:application
+      - --bind
+      - 0.0.0.0:8000
+      - --workers
+      - "3"
+      - --timeout
+      - "120"
+      - --access-logfile
+      - "-"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  celery:
+    <<: *app
+    command: celery -A config worker --loglevel=info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+  flower:
+    <<: *app
+    command: celery -A config flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+      celery:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:
+  static_data:

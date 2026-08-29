@@ -1,0 +1,1280 @@
+openapi: 3.0.3
+info:
+  title: RAVID Private Knowledge API
+  version: 1.0.0
+  description: Private document ingestion, billing, and RAG chat APIs.
+paths:
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/chat/conversations/:
+    get:
+      operationId: chat_conversations_retrieve
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationListResponse'
+          description: ''
+    post:
+      operationId: chat_conversations_create
+      tags:
+      - chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConversationCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConversationCreateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSummary'
+          description: ''
+  /api/chat/history/:
+    get:
+      operationId: chat_history_retrieve
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatHistoryResponse'
+          description: ''
+  /api/chat/query/:
+    post:
+      operationId: chat_query_create
+      tags:
+      - chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatQueryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatQueryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatQueryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatQueryResponse'
+          description: ''
+  /api/documents/:
+    get:
+      operationId: documents_list
+      tags:
+      - documents
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Document'
+          description: ''
+    post:
+      operationId: documents_create
+      tags:
+      - documents
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentUploadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentUploadResponse'
+          description: ''
+  /api/documents/{document_id}/:
+    get:
+      operationId: documents_retrieve
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - documents
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    delete:
+      operationId: documents_destroy
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - documents
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/documents/{document_id}/download/:
+    get:
+      operationId: documents_download_retrieve
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - documents
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/documents/{document_id}/retry/:
+    post:
+      operationId: documents_retry_create
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - documents
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+  /api/documents/status/:
+    get:
+      operationId: documents_status_retrieve
+      parameters:
+      - in: query
+        name: task_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - documents
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentStatus'
+          description: ''
+  /api/documents/upload/:
+    post:
+      operationId: documents_upload_create
+      tags:
+      - documents
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentUploadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentUploadResponse'
+          description: ''
+  /api/health/:
+    get:
+      operationId: health_retrieve
+      tags:
+      - health
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+          description: ''
+  /api/payments/vnpay/create/:
+    post:
+      operationId: payments_vnpay_create_create
+      tags:
+      - payments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentTransaction'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentTransaction'
+          description: ''
+  /api/payments/vnpay/ipn/:
+    get:
+      operationId: payments_vnpay_ipn_retrieve
+      tags:
+      - payments
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VnPayIpnResponse'
+          description: ''
+  /api/payments/vnpay/return/:
+    get:
+      operationId: payments_vnpay_return_retrieve
+      tags:
+      - payments
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentReturn'
+          description: ''
+  /api/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/subscription-plans/:
+    get:
+      operationId: subscription_plans_list
+      tags:
+      - subscription-plans
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionPlan'
+          description: ''
+  /api/subscriptions/me/:
+    get:
+      operationId: subscriptions_me_retrieve
+      tags:
+      - subscriptions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentSubscriptionResponse'
+          description: ''
+  /api/subscriptions/me/cancel/:
+    post:
+      operationId: subscriptions_me_cancel_create
+      tags:
+      - subscriptions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+          description: ''
+  /api/subscriptions/subscribe/:
+    post:
+      operationId: subscriptions_subscribe_create
+      tags:
+      - subscriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscribeRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SubscribeRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubscribeRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscribeResponse'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscribeResponse'
+          description: ''
+components:
+  schemas:
+    ChatHistoryResponse:
+      type: object
+      properties:
+        conversations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationHistory'
+      required:
+      - conversations
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - content
+      - created_at
+      - id
+      - role
+    ChatQueryRequest:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        document_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+          minItems: 1
+        conversation_id:
+          type: string
+          format: uuid
+        use_hyde:
+          type: boolean
+          default: false
+      required:
+      - conversation_id
+      - document_ids
+      - query
+    ChatQueryResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        conversation_id:
+          type: string
+          format: uuid
+        retrieval_metadata:
+          $ref: '#/components/schemas/RetrievalMetadata'
+      required:
+      - answer
+      - conversation_id
+      - retrieval_metadata
+    ConversationCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          default: ''
+          maxLength: 255
+    ConversationHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+      required:
+      - id
+      - messages
+      - title
+    ConversationListResponse:
+      type: object
+      properties:
+        conversations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationSummary'
+      required:
+      - conversations
+    ConversationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        message_count:
+          type: integer
+      required:
+      - created_at
+      - id
+      - title
+    CreatePaymentRequestRequest:
+      type: object
+      properties:
+        subscriptionId:
+          type: string
+          format: uuid
+      required:
+      - subscriptionId
+    CurrentSubscriptionResponse:
+      type: object
+      properties:
+        subscription:
+          allOf:
+          - $ref: '#/components/schemas/Subscription'
+          nullable: true
+      required:
+      - subscription
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/DocumentStatusEnum'
+        originalFilename:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+        fileUrl:
+          type: string
+          format: uri
+          nullable: true
+          readOnly: true
+        pageCount:
+          type: integer
+        chunkCount:
+          type: integer
+        errorMessage:
+          type: string
+        processedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        ingestionTaskId:
+          type: string
+          nullable: true
+      required:
+      - chunkCount
+      - createdAt
+      - errorMessage
+      - fileSize
+      - fileUrl
+      - id
+      - ingestionTaskId
+      - mimeType
+      - originalFilename
+      - pageCount
+      - processedAt
+      - title
+      - updatedAt
+    DocumentStatus:
+      type: object
+      properties:
+        task_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DocumentStatusStatusEnum'
+        message:
+          type: string
+        error:
+          type: string
+      required:
+      - status
+      - task_id
+    DocumentStatusEnum:
+      enum:
+      - UPLOADED
+      - PROCESSING
+      - READY
+      - FAILED
+      type: string
+      description: |-
+        * `UPLOADED` - Uploaded
+        * `PROCESSING` - Processing
+        * `READY` - Ready
+        * `FAILED` - Failed
+    DocumentStatusStatusEnum:
+      enum:
+      - PROCESSING
+      - SUCCESS
+      - FAILURE
+      type: string
+      description: |-
+        * `PROCESSING` - PROCESSING
+        * `SUCCESS` - SUCCESS
+        * `FAILURE` - FAILURE
+    DocumentUploadRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        file:
+          type: string
+          format: binary
+          writeOnly: true
+      required:
+      - file
+    DocumentUploadResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        document_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+      required:
+      - document_id
+      - message
+      - task_id
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    ModeEnum:
+      enum:
+      - standard
+      - hyde
+      type: string
+      description: |-
+        * `standard` - standard
+        * `hyde` - hyde
+    PaymentReturn:
+      type: object
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        paymentStatus:
+          type: string
+        subscriptionStatus:
+          type: string
+        gatewaySuccessful:
+          type: boolean
+        responseCode:
+          type: string
+      required:
+      - gatewaySuccessful
+      - paymentId
+      - paymentStatus
+      - responseCode
+      - subscriptionStatus
+    PaymentTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        subscriptionId:
+          type: string
+          format: uuid
+        provider:
+          $ref: '#/components/schemas/ProviderEnum'
+        status:
+          $ref: '#/components/schemas/PaymentTransactionStatusEnum'
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          maxLength: 3
+        paymentUrl:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - amount
+      - expiresAt
+      - id
+      - paymentUrl
+      - subscriptionId
+    PaymentTransactionStatusEnum:
+      enum:
+      - PENDING
+      - SUCCESS
+      - FAILED
+      - EXPIRED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `SUCCESS` - Success
+        * `FAILED` - Failed
+        * `EXPIRED` - Expired
+    ProviderEnum:
+      enum:
+      - VNPAY
+      type: string
+      description: '* `VNPAY` - VNPay'
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          title: Email address
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 150
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - firstName
+      - lastName
+      - password
+      - password_confirm
+      - username
+    RetrievalMetadata:
+      type: object
+      properties:
+        mode:
+          $ref: '#/components/schemas/ModeEnum'
+        hypothetical_passage:
+          type: string
+          nullable: true
+        retrieved_chunks_count:
+          type: integer
+        source_chunks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceChunk'
+        hyde_fallback:
+          type: boolean
+        fallback_reason:
+          type: string
+      required:
+      - hypothetical_passage
+      - mode
+      - retrieved_chunks_count
+      - source_chunks
+    SourceChunk:
+      type: object
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        page_number:
+          type: integer
+          nullable: true
+        chunk_index:
+          type: integer
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+        content:
+          type: string
+      required:
+      - chunk_index
+      - content
+      - document_id
+      - filename
+      - page_number
+      - score
+    SubscribeRequestRequest:
+      type: object
+      properties:
+        planId:
+          type: string
+          format: uuid
+      required:
+      - planId
+    SubscribeResponse:
+      type: object
+      properties:
+        subscription:
+          $ref: '#/components/schemas/Subscription'
+        paymentRequired:
+          type: boolean
+      required:
+      - paymentRequired
+      - subscription
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/SubscriptionStatusEnum'
+        plan:
+          allOf:
+          - $ref: '#/components/schemas/SubscriptionPlan'
+          readOnly: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        dailyTokenLimit:
+          type: integer
+        maxDocuments:
+          type: integer
+        maxFileSizeMb:
+          type: integer
+        tokensUsedToday:
+          type: integer
+          nullable: true
+          readOnly: true
+        tokensRemainingToday:
+          type: integer
+          nullable: true
+          readOnly: true
+      required:
+      - cancelledAt
+      - dailyTokenLimit
+      - expiresAt
+      - id
+      - maxDocuments
+      - maxFileSizeMb
+      - plan
+      - startsAt
+      - tokensRemainingToday
+      - tokensUsedToday
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          maxLength: 3
+        durationDays:
+          type: integer
+        dailyTokenLimit:
+          type: integer
+        maxDocuments:
+          type: integer
+        maxFileSizeMb:
+          type: integer
+        isActive:
+          type: boolean
+      required:
+      - code
+      - dailyTokenLimit
+      - durationDays
+      - id
+      - isActive
+      - maxDocuments
+      - maxFileSizeMb
+      - name
+    SubscriptionStatusEnum:
+      enum:
+      - PENDING
+      - ACTIVE
+      - EXPIRED
+      - CANCELLED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `ACTIVE` - Active
+        * `EXPIRED` - Expired
+        * `CANCELLED` - Cancelled
+    TokenObtainPair:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - refresh
+    TokenObtainPairRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+      required:
+      - access
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          title: Email address
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        firstName:
+          type: string
+        lastName:
+          type: string
+        subscription:
+          allOf:
+          - $ref: '#/components/schemas/Subscription'
+          nullable: true
+          readOnly: true
+      required:
+      - firstName
+      - id
+      - lastName
+      - subscription
+      - username
+    VnPayIpnResponse:
+      type: object
+      properties:
+        RspCode:
+          type: string
+        Message:
+          type: string
+      required:
+      - Message
+      - RspCode
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
