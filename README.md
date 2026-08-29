@@ -395,6 +395,7 @@ request and response schemas.
 | `OPENROUTER_EMBEDDING_MODEL` | Document/query embedding model | `openai/text-embedding-3-small` |
 | `OPENROUTER_CHAT_MODEL` | Final-answer model/router | `openrouter/free` |
 | `OPENROUTER_HYDE_MODEL` | Hypothetical-passage model/router | `openrouter/free` |
+| `OPENROUTER_FALLBACK_MODEL` | Retry model for unusable provider output | `nvidia/nemotron-3-ultra-550b-a55b:free` |
 | `RAG_CHUNK_SIZE` | LangChain chunk size in characters | `1000` |
 | `RAG_CHUNK_OVERLAP` | Chunk overlap in characters | `200` |
 | `RAG_RETRIEVAL_K` | Maximum retrieved chunks | `5` |

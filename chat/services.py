@@ -1,11 +1,11 @@
 import logging
 import math
+import re
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 from rest_framework.exceptions import NotFound
 
@@ -45,16 +45,26 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
             "system",
             "Answer only from the supplied real document context. If the answer is not "
             "present, say so clearly. Do not treat a hypothetical passage as evidence and "
-            "do not invent facts.\n\nReal document context:\n{context}",
+            "do not invent facts. Return only the final answer: never output hidden "
+            "reasoning, a thinking process, or safety/moderation labels.\n\n"
+            "Real document context:\n{context}",
         ),
         ("human", "Question: {question}"),
     ]
 )
 
 
-def get_chat_model(*, model=None, max_tokens=None, timeout=None, max_retries=2):
+def get_chat_model(
+    *,
+    model=None,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+    reasoning=None,
+):
     if not settings.OPENROUTER_API_KEY:
         raise ChatServiceUnavailable("OPENROUTER_API_KEY is required for chat.")
+    extra = {"extra_body": {"reasoning": reasoning}} if reasoning else {}
     return ChatOpenAI(
         api_key=settings.OPENROUTER_API_KEY,
         base_url=settings.OPENROUTER_BASE_URL,
@@ -67,6 +77,7 @@ def get_chat_model(*, model=None, max_tokens=None, timeout=None, max_retries=2):
             "HTTP-Referer": settings.OPENROUTER_SITE_URL,
             "X-Title": settings.OPENROUTER_APP_NAME,
         },
+        **extra,
     )
 
 
@@ -99,18 +110,45 @@ def _message_text(message):
     return "\n".join(part.strip() for part in parts if part.strip()).strip()
 
 
+SAFETY_LABEL_PATTERN = re.compile(
+    r"^\s*(?:(?:user|assistant|response|content)\s+)?safety\s*:\s*"
+    r"(?:safe|unsafe|unknown)\s*[.!]?\s*$",
+    re.IGNORECASE,
+)
+HYDE_REASONING_MARKERS = (
+    "here's a thinking process",
+    "here is a thinking process",
+    "analyze user input",
+    "analysis of the user",
+)
+
+
+def _provider_text_issue(text, *, purpose):
+    if not text.strip():
+        return "empty"
+    if SAFETY_LABEL_PATTERN.fullmatch(text):
+        return "safety_label"
+    if purpose == "hyde":
+        normalized = text.casefold()
+        if any(marker in normalized[:600] for marker in HYDE_REASONING_MARKERS):
+            return "reasoning_trace"
+    return None
+
+
 def _generate_answer(context, query):
     response = (ANSWER_PROMPT | get_chat_model()).invoke(
         {"context": context, "question": query}
     )
     answer = _message_text(response)
     total_tokens = _usage_tokens(response)
-    if answer:
+    issue = _provider_text_issue(answer, purpose="answer")
+    if not issue:
         return answer, total_tokens
 
     logger.warning(
-        "Chat provider returned an empty answer; retrying with low reasoning",
+        "Chat provider returned an unusable answer; retrying with fallback model",
         extra={
+            "response_issue": issue,
             "finish_reason": (getattr(response, "response_metadata", None) or {}).get(
                 "finish_reason"
             ),
@@ -122,15 +160,17 @@ def _generate_answer(context, query):
     retry_response = (
         ANSWER_PROMPT
         | get_chat_model(
+            model=settings.OPENROUTER_FALLBACK_MODEL,
             max_retries=0,
             reasoning={"effort": "low", "exclude": True},
         )
     ).invoke({"context": context, "question": query})
     total_tokens += _usage_tokens(retry_response)
     answer = _message_text(retry_response)
-    if not answer:
+    retry_issue = _provider_text_issue(answer, purpose="answer")
+    if retry_issue:
         raise ChatServiceUnavailable(
-            "The AI provider returned an empty answer. Please try again."
+            "The AI provider returned an unusable answer. Please try again."
         )
     return answer, total_tokens
 
@@ -152,9 +192,10 @@ def _generate_hypothetical_passage(query):
         max_retries=0,
     )
     message = chain.invoke({"question": query})
-    passage = StrOutputParser().invoke(message).strip()
-    if not passage:
-        raise ValueError("HyDE generation returned an empty passage.")
+    passage = _message_text(message)
+    issue = _provider_text_issue(passage, purpose="hyde")
+    if issue:
+        raise ValueError(f"HyDE generation returned unusable output: {issue}.")
     return passage, _usage_tokens(message)
 
 

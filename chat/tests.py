@@ -140,8 +140,29 @@ class AnswerGenerationTests(SimpleTestCase):
         self.assertEqual(chat_model.call_count, 2)
 
     @patch("chat.services.get_chat_model")
+    def test_safety_label_is_retried_before_returning(self, chat_model):
+        responses = iter(
+            [AIMessage(content="User Safety: safe"), AIMessage(content="Grounded answer.")]
+        )
+        chat_model.return_value = RunnableLambda(lambda _prompt: next(responses))
+
+        answer, _tokens = _generate_answer("Context", "Question")
+
+        self.assertEqual(answer, "Grounded answer.")
+        self.assertEqual(chat_model.call_count, 2)
+
+    @patch("chat.services.get_chat_model")
     def test_two_empty_answers_raise_service_error(self, chat_model):
         chat_model.return_value = RunnableLambda(lambda _prompt: AIMessage(content=""))
 
-        with self.assertRaisesMessage(ChatServiceUnavailable, "empty answer"):
+        with self.assertRaisesMessage(ChatServiceUnavailable, "unusable answer"):
             _generate_answer("Context", "Question")
+
+    @patch("chat.services.get_chat_model")
+    def test_hyde_reasoning_trace_is_rejected(self, chat_model):
+        chat_model.return_value = RunnableLambda(
+            lambda _prompt: AIMessage(content="Here's a thinking process:\n1. Analyze user input")
+        )
+
+        with self.assertRaisesMessage(ValueError, "reasoning_trace"):
+            _generate_hypothetical_passage("Question")
